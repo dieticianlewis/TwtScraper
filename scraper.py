@@ -133,7 +133,7 @@ if __name__ == "__main__":
         # Format the tweet message
         sender_name = latest_send['sender']
         amount = latest_send['amount']
-        message = f"🎉 New send for alquis! 🎉\n\nFrom: {sender_name}\nAmount: {amount}\n\nCheck it out: {SENT_BIO_URL}"
+        message = f"Predator Keira just got sent {amount} from {sender_name}"
         
         if post_to_twitter(message):
             print("Updating state file with the new send.")
