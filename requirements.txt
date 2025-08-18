@@ -1,3 +1,10 @@
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+
+    
 requests
 beautifulsoup4
 tweepy
+python-dotenv
+
+  
