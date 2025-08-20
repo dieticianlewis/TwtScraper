@@ -1,12 +1,30 @@
 {
   "alquis": [
-    "************-5-$-0",
-    "Anonymous-150-$-1",
-    "Anonymous-50-$-2"
+    {
+      "sender": "************",
+      "amount": "$5"
+    },
+    {
+      "sender": "Anonymous",
+      "amount": "$150"
+    },
+    {
+      "sender": "Anonymous",
+      "amount": "$50"
+    }
   ],
   "gnnx": [
-    "Someone-10-$-0",
-    "Anonymous-200-$-1",
-    "Anonymous-50-$-2"
+    {
+      "sender": "Anonymous",
+      "amount": "$200"
+    },
+    {
+      "sender": "Someone",
+      "amount": "$10"
+    },
+    {
+      "sender": "Someone",
+      "amount": "$10"
+    }
   ]
 }
