@@ -23,17 +23,14 @@ PROFILES_TO_TRACK = [
 ]
 
 STATE_FILE = "last_sends.json"
-# --- THIS IS THE FIX ---
-# Using the endpoint name you confirmed from your screenshot.
 API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
-
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
 ]
 
-# --- This function is correct and should not be changed ---
+# --- UPDATED FUNCTION: Now searches ALL og:image tags ---
 def get_user_uid(username):
     profile_url = f"https://sent.bio/{username}"
     print(f"Scraping {profile_url} to find user UID...")
@@ -42,28 +39,44 @@ def get_user_uid(username):
         response = requests.get(profile_url, headers=headers, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        meta_tag = soup.find('meta', property='og:image')
-        if not meta_tag or not meta_tag.has_attr('content'):
-            print(f"Could not find og:image meta tag for {username}.")
+        
+        # --- THIS IS THE FIX ---
+        # 1. Find ALL meta tags with property="og:image"
+        meta_tags = soup.find_all('meta', property='og:image')
+        
+        if not meta_tags:
+            print(f"Could not find any og:image meta tags for {username}.")
             return None
-        image_url = meta_tag['content']
-        print(f"DEBUG: Found raw image URL: {image_url}")
-        match = re.search(r"public_users(?:/|%2F)([a-zA-Z0-9]+)(?:/|%2F)", image_url)
-        if match:
-            uid = match.group(1)
-            print(f"Successfully found UID for {username}: {uid}")
-            return uid
-        print(f"Could not parse UID from image URL for {username} using regex.")
+
+        # 2. Loop through them to find the correct one
+        for tag in meta_tags:
+            if not tag.has_attr('content'):
+                continue
+            
+            image_url = tag['content']
+            
+            # 3. Check if this is the user-specific URL
+            if "public_users" in image_url:
+                print(f"DEBUG: Found user-specific image URL: {image_url}")
+                match = re.search(r"public_users(?:/|%2F)([a-zA-Z0-9]+)(?:/|%2F)", image_url)
+                if match:
+                    uid = match.group(1)
+                    print(f"Successfully found UID for {username}: {uid}")
+                    return uid # Success! Exit the function.
+
+        # If the loop finishes and we haven't returned, it means we failed.
+        print(f"Could not find a user-specific og:image tag for {username}.")
         return None
+
     except requests.exceptions.RequestException as e:
         print(f"Error fetching page for {username} to get UID: {e}")
         return None
 
-# --- This function is also now correct with the right payload format ---
+# --- (The rest of the file is unchanged) ---
 def get_recent_sends(uid, username_for_logging):
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API: {API_URL}")
     sends = []
-    payload = {"data": {"receiverUid": uid}} # This is the correct payload
+    payload = {"data": {"receiverUid": uid}}
     selected_agent = random.choice(USER_AGENTS)
     headers = {"Content-Type": "application/json", "User-Agent": selected_agent}
 
@@ -91,7 +104,6 @@ def get_recent_sends(uid, username_for_logging):
         print(f"Error decoding JSON response for {username_for_logging}. Response was: {response.text}")
         return []
 
-# --- (The rest of the file is unchanged) ---
 def read_state():
     if not os.path.exists(STATE_FILE): return {}
     with open(STATE_FILE, 'r') as f:
@@ -146,7 +158,7 @@ if __name__ == "__main__":
                 message_template = profile["tweet_message"]
                 message = message_template.format(amount=send['amount'], sender_name=send['sender'])
                 print(f"Formatted Tweet: {message}")
-                post_to_twitter(message) # I've re-enabled tweeting, be careful or comment it out for testing
+                post_to_twitter(message) 
                 time.sleep(2)
             all_states[username] = recent_sends[0] 
             something_was_updated = True
