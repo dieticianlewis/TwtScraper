@@ -28,7 +28,7 @@ jobs:
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
-        run: python scraper.py
+        run: python initialize_state.py
 
       # --- NEW STEP ---
       # This step creates a new file or updates an existing one with the current timestamp.
