@@ -25,11 +25,10 @@ PROFILES_TO_TRACK = [
 ]
 
 STATE_FILE = "last_sends.json"
-API_URL = "https://us-east1-sent-wc24r.cloudfunctions.net/recentSends"
+API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
 ]
 
 # --- (get_user_uid function is unchanged) ---
@@ -61,7 +60,7 @@ def get_user_uid(username):
         print(f"Error fetching page for {username} to get UID: {e}")
         return None
 
-# --- UPDATED get_recent_sends to use Positional ID ---
+# --- get_recent_sends uses the Positional ID, which is correct for the Snapshot method ---
 def get_recent_sends(uid, username_for_logging):
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API: {API_URL}")
     sends = []
@@ -76,14 +75,11 @@ def get_recent_sends(uid, username_for_logging):
              print(f"API response for {username_for_logging} contained no sends.")
              return []
         
-        # Use enumerate to get the index (position) of each send
         for index, item in enumerate(sends_list):
             sender_name = item.get('sender_name', 'Unknown')
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
             formatted_amount = f"{currency_symbol}{amount}"
-            
-            # THE CORE FIX: Create a truly unique ID using the send's content AND its position.
             unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
             
             sends.append({
@@ -119,7 +115,7 @@ def post_to_twitter(message):
         print(f"Error posting to Twitter: {e}")
         return False
 
-# --- Main Logic (unchanged from last version, as it uses the intelligent ID) ---
+# --- THE DEFINITIVE MAIN LOGIC USING THE "SNAPSHOT" METHOD ---
 if __name__ == "__main__":
     print("Starting scraper for all profiles...")
     all_states = read_state()
@@ -131,16 +127,20 @@ if __name__ == "__main__":
         print(f"\n--- Checking profile: {username} ---")
         uid = get_user_uid(username)
         if not uid: continue
+        
+        # 1. GET THE NEW LIST OF SENDS (WITH POSITIONAL IDS)
         recent_sends = get_recent_sends(uid, username)
         if not recent_sends: continue
         
         print(f"Found {len(recent_sends)} recent sends for {username}.")
-        previous_send_id = all_states.get(username, {}).get("id")
-        new_sends = []
-        for send in recent_sends:
-            if send["id"] == previous_send_id: break
-            new_sends.append(send)
         
+        # 2. GET THE OLD AND NEW SNAPSHOTS (LISTS OF IDs)
+        previous_send_ids = set(all_states.get(username, [])) 
+        current_send_ids = {send['id'] for send in recent_sends}
+
+        # 3. FIND THE DIFFERENCE TO IDENTIFY TRULY NEW SENDS
+        new_sends = [send for send in recent_sends if send['id'] not in previous_send_ids]
+
         if new_sends:
             print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
             
@@ -156,13 +156,15 @@ if __name__ == "__main__":
                     sender_name=send['sender'],
                     est_time=time_str
                 )
-                potential_tweets.append({'base_text': base_text, 'original_send': send})
+                potential_tweets.append({'base_text': base_text})
                 tweet_counts[base_text] = tweet_counts.get(base_text, 0) + 1
 
-            potential_tweets.reverse()
+            potential_tweets.reverse() # Tweet oldest new send first
+            
+            # This flag ensures we only update state if all tweets for a user succeed
+            all_tweets_succeeded = True 
             for item in potential_tweets:
                 base_text = item['base_text']
-                send_data = item['original_send']
                 final_message = base_text
 
                 if tweet_counts[base_text] > 1:
@@ -171,16 +173,20 @@ if __name__ == "__main__":
                 
                 print(f"Formatted Tweet: {final_message}")
                 
-                if post_to_twitter(final_message):
-                    all_states[username] = send_data
-                    something_was_updated = True
-                else:
-                    print(f"Stopping processing for {username} due to tweet failure.")
-                    break
+                if not post_to_twitter(final_message):
+                     print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
+                     all_tweets_succeeded = False # Mark as failed
+                     break # Stop this user's tweets
                 time.sleep(2)
+            
+            # 4. IF ALL TWEETS SUCCEEDED, SAVE THE NEW SNAPSHOT
+            if all_tweets_succeeded:
+                all_states[username] = list(current_send_ids)
+                something_was_updated = True
         else:
             print(f"No new sends detected for {username}.")
 
+    # 5. WRITE THE FINAL, UPDATED STATES TO THE FILE
     if something_was_updated:
         print("\n--- All profiles checked. Writing updated states to file. ---")
         write_state(all_states)
