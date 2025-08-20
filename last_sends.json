@@ -15,16 +15,16 @@
   ],
   "gnnx": [
     {
+      "sender": "Someone",
+      "amount": "$10"
+    },
+    {
+      "sender": "Someone",
+      "amount": "$10"
+    },
+    {
       "sender": "Anonymous",
       "amount": "$200"
-    },
-    {
-      "sender": "Someone",
-      "amount": "$10"
-    },
-    {
-      "sender": "Someone",
-      "amount": "$10"
     }
   ]
 }
