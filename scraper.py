@@ -21,9 +21,8 @@ PROFILES_TO_TRACK = [
 ]
 
 STATE_FILE = "last_sends.json"
-# --- THIS IS THE CORRECT API ENDPOINT ---
-# Note the "{}" which we will fill with the username.
-API_URL_TEMPLATE = "https://us-east1-sent-wc254r.cloudfunctions.net/getUserProfile?username={}"
+# --- THIS IS THE CORRECT API ENDPOINT AND METHOD ---
+API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -33,36 +32,35 @@ USER_AGENTS = [
 
 def get_recent_sends(username):
     """
-    Fetches user profile data from the correct API endpoint and extracts recent sends.
+    Fetches recent sends from the correct POST API endpoint with the correct payload.
     """
-    # --- THIS IS THE FIX ---
-    # We format the URL with the username and make a GET request (no payload).
-    url = API_URL_TEMPLATE.format(username)
-    print(f"Fetching data for '{username}' from API: {url}")
+    print(f"Fetching data for '{username}' from API: {API_URL}")
     sends = []
+    
+    # --- THIS IS THE FIX ---
+    # The payload MUST include "isWeb": true to be accepted by the server.
+    payload = {
+        "isWeb": True, 
+        "username": username
+    }
     
     selected_agent = random.choice(USER_AGENTS)
     print(f"Using User-Agent: {selected_agent}")
 
     headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://sent.bio",
+        "Referer": f"https://sent.bio/{username}",
         "User-Agent": selected_agent
     }
 
     try:
-        # Use a GET request now, which has no payload (json= parameter is gone)
-        response = requests.get(url, headers=headers, timeout=15)
+        # We must use a POST request with the correct payload
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
         response.raise_for_status() 
-        
-        profile_data = response.json()
+        api_data = response.json()
 
-        # The sends are located inside the 'recentSends' key in the response
-        api_sends = profile_data.get('recentSends', [])
-        if not api_sends:
-            print(f"No 'recentSends' data found in API response for {username}.")
-            return []
-
-        # Convert API data to the format our script expects
-        for index, item in enumerate(api_sends):
+        for index, item in enumerate(api_data):
             sender_name = item.get('sender_name', 'Unknown')
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
