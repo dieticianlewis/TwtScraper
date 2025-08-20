@@ -23,7 +23,7 @@ PROFILES_TO_TRACK = [
 STATE_FILE = "last_sends.json"
 # --- THIS IS THE CORRECT API ENDPOINT ---
 # Note the "{}" which we will fill with the username.
-API_URL_TEMPLATE = "https://us-central1-sent-wc254r.cloudfunctions.net/getUserProfile?username={}"
+API_URL_TEMPLATE = "https://us-east1-sent-wc254r.cloudfunctions.net/getUserProfile?username={}"
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
