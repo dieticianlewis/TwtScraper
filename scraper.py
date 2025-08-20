@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 load_dotenv()
 
-# --- Configuration: The message no longer needs the [xx] brackets ---
+# --- Configuration (unchanged) ---
 PROFILES_TO_TRACK = [
     {
         "username": "alquis",
@@ -25,14 +25,14 @@ PROFILES_TO_TRACK = [
 ]
 
 STATE_FILE = "last_sends.json"
-API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
+API_URL = "https://us-east1-sent-wc24r.cloudfunctions.net/recentSends"
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
 ]
 
-# --- (All helper functions down to the main block are unchanged) ---
+# --- (get_user_uid function is unchanged) ---
 def get_user_uid(username):
     profile_url = f"https://sent.bio/{username}"
     print(f"Scraping {profile_url} to find user UID...")
@@ -61,6 +61,7 @@ def get_user_uid(username):
         print(f"Error fetching page for {username} to get UID: {e}")
         return None
 
+# --- UPDATED get_recent_sends to use Positional ID ---
 def get_recent_sends(uid, username_for_logging):
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API: {API_URL}")
     sends = []
@@ -74,24 +75,28 @@ def get_recent_sends(uid, username_for_logging):
         if not sends_list:
              print(f"API response for {username_for_logging} contained no sends.")
              return []
-        for item in sends_list:
+        
+        # Use enumerate to get the index (position) of each send
+        for index, item in enumerate(sends_list):
             sender_name = item.get('sender_name', 'Unknown')
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
             formatted_amount = f"{currency_symbol}{amount}"
-            timestamp_str = item.get('created_at')
-            unique_id = f"{sender_name}-{amount}-{currency_symbol}-{timestamp_str}"
+            
+            # THE CORE FIX: Create a truly unique ID using the send's content AND its position.
+            unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
+            
             sends.append({
                 "sender": sender_name,
                 "amount": formatted_amount,
                 "id": unique_id,
-                "timestamp": timestamp_str
             })
         return sends
     except Exception as e:
         print(f"Error in get_recent_sends for {username_for_logging}: {e}")
         return []
 
+# --- (read_state, write_state, post_to_twitter are unchanged) ---
 def read_state():
     if not os.path.exists(STATE_FILE): return {}
     with open(STATE_FILE, 'r') as f:
@@ -114,7 +119,7 @@ def post_to_twitter(message):
         print(f"Error posting to Twitter: {e}")
         return False
 
-# --- UPDATED Main Logic with PRE-PROCESSING step ---
+# --- Main Logic (unchanged from last version, as it uses the intelligent ID) ---
 if __name__ == "__main__":
     print("Starting scraper for all profiles...")
     all_states = read_state()
@@ -122,7 +127,6 @@ if __name__ == "__main__":
     target_timezone = ZoneInfo("America/New_York")
 
     for profile in PROFILES_TO_TRACK:
-        # ... (code to get uid and recent_sends is the same) ...
         username = profile["username"]
         print(f"\n--- Checking profile: {username} ---")
         uid = get_user_uid(username)
@@ -140,39 +144,27 @@ if __name__ == "__main__":
         if new_sends:
             print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
             
-            # --- PRE-PROCESSING STEP TO DETECT DUPLICATES ---
+            now_est = datetime.now(target_timezone)
+            time_str = now_est.strftime("%H:%M")
+
             tweet_counts = {}
             potential_tweets = []
             
             for send in new_sends:
-                time_str = ""
-                if send.get("timestamp"):
-                    try:
-                        utc_time = datetime.fromisoformat(send["timestamp"].replace('Z', '+00:00'))
-                        local_time = utc_time.astimezone(target_timezone)
-                        # Format to HH:MM as requested
-                        time_str = local_time.strftime("%H:%M")
-                    except (ValueError, TypeError):
-                        time_str = "a moment ago"
-                
-                # Generate the base tweet text without any unique marker
                 base_text = profile["tweet_message"].format(
                     amount=send['amount'],
                     sender_name=send['sender'],
                     est_time=time_str
                 )
-                
                 potential_tweets.append({'base_text': base_text, 'original_send': send})
                 tweet_counts[base_text] = tweet_counts.get(base_text, 0) + 1
 
-            # --- MAIN TWEETING LOOP ---
-            potential_tweets.reverse() # Tweet oldest to newest
+            potential_tweets.reverse()
             for item in potential_tweets:
                 base_text = item['base_text']
                 send_data = item['original_send']
                 final_message = base_text
 
-                # The core logic: if we counted this text more than once, add a marker
                 if tweet_counts[base_text] > 1:
                     unique_marker = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))
                     final_message = f"{base_text} [{unique_marker}]"
