@@ -1,30 +1,36 @@
 {
-  "alquis": [
-    {
-      "sender": "************",
-      "amount": "$5"
-    },
-    {
-      "sender": "Anonymous",
-      "amount": "$150"
-    },
-    {
-      "sender": "Anonymous",
-      "amount": "$50"
-    }
-  ],
-  "gnnx": [
-    {
-      "sender": "Someone",
-      "amount": "$10"
-    },
-    {
-      "sender": "Someone",
-      "amount": "$10"
-    },
-    {
-      "sender": "Anonymous",
-      "amount": "$200"
-    }
-  ]
+  "alquis": {
+    "uid": null,
+    "sends": [
+      {
+        "sender": "************",
+        "amount": "$5"
+      },
+      {
+        "sender": "Anonymous",
+        "amount": "$150"
+      },
+      {
+        "sender": "Anonymous",
+        "amount": "$50"
+      }
+    ]
+  },
+  "gnnx": {
+    "uid": null,
+    "sends": [
+      {
+        "sender": "Someone",
+        "amount": "$10"
+      },
+      {
+        "sender": "Someone",
+        "amount": "$10"
+      },
+      {
+        "sender": "Anonymous",
+        "amount": "$200"
+      }
+    ]
+  }
 }
