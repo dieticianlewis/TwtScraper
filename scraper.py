@@ -4,7 +4,7 @@ import time
 import requests
 import tweepy
 from dotenv import load_dotenv
-import random # Import the random library
+import random
 
 load_dotenv()
 
@@ -21,53 +21,52 @@ PROFILES_TO_TRACK = [
 ]
 
 STATE_FILE = "last_sends.json"
-API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
+# --- THIS IS THE CORRECT API ENDPOINT ---
+# Note the "{}" which we will fill with the username.
+API_URL_TEMPLATE = "https://us-central1-sent-wc254r.cloudfunctions.net/getUserProfile?username={}"
 
-# A list of common User-Agent strings.
-# The script will randomly pick one from this list for each run.
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59"
 ]
 
 def get_recent_sends(username):
     """
-    Fetches the recent sends for a user directly from the API using a random user agent.
-    Returns a list of send dictionaries, newest first.
+    Fetches user profile data from the correct API endpoint and extracts recent sends.
     """
-    print(f"Fetching data for '{username}' from API...")
+    # --- THIS IS THE FIX ---
+    # We format the URL with the username and make a GET request (no payload).
+    url = API_URL_TEMPLATE.format(username)
+    print(f"Fetching data for '{username}' from API: {url}")
     sends = []
-    
-    payload = {"username": username}
     
     selected_agent = random.choice(USER_AGENTS)
     print(f"Using User-Agent: {selected_agent}")
 
     headers = {
-        "Content-Type": "application/json",
-        "Origin": "https://sent.bio",
-        "Referer": f"https://sent.bio/{username}",
         "User-Agent": selected_agent
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
-        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        # Use a GET request now, which has no payload (json= parameter is gone)
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status() 
         
-        api_data = response.json()
+        profile_data = response.json()
+
+        # The sends are located inside the 'recentSends' key in the response
+        api_sends = profile_data.get('recentSends', [])
+        if not api_sends:
+            print(f"No 'recentSends' data found in API response for {username}.")
+            return []
 
         # Convert API data to the format our script expects
-        for index, item in enumerate(api_data):
+        for index, item in enumerate(api_sends):
             sender_name = item.get('sender_name', 'Unknown')
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
-            
             formatted_amount = f"{currency_symbol}{amount}"
-            
-            # Create a unique ID to prevent tweeting duplicates
             unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
 
             sends.append({
@@ -85,6 +84,7 @@ def get_recent_sends(username):
         print(f"Error decoding JSON response for {username}. Response was: {response.text}")
         return []
 
+# --- (The rest of the file is unchanged) ---
 def read_state():
     if not os.path.exists(STATE_FILE):
         return {}
@@ -121,14 +121,12 @@ if __name__ == "__main__":
     for profile in PROFILES_TO_TRACK:
         username = profile["username"]
         print(f"\n--- Checking profile: {username} ---")
-
         recent_sends = get_recent_sends(username)
         if not recent_sends:
             continue
 
         print(f"Found {len(recent_sends)} recent sends for {username}.")
         previous_send_id = all_states.get(username, {}).get("id")
-        
         new_sends = []
         for send in recent_sends:
             if send["id"] == previous_send_id:
@@ -137,17 +135,14 @@ if __name__ == "__main__":
         
         if new_sends:
             print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
-            new_sends.reverse() # Tweet oldest new send first
-            
+            new_sends.reverse()
             for send in new_sends:
                 message_template = profile["tweet_message"]
                 message = message_template.format(amount=send['amount'], sender_name=send['sender'])
-                
                 print(f"Formatted Tweet: {message}")
                 post_to_twitter(message)
-                time.sleep(2) # Add a small delay between tweets
-
-            all_states[username] = recent_sends[0] # Save the newest send as the last seen
+                time.sleep(2)
+            all_states[username] = recent_sends[0]
             something_was_updated = True
         else:
             print(f"No new sends detected for {username}.")
