@@ -60,7 +60,7 @@ def get_user_uid(username):
         print(f"Error fetching page for {username} to get UID: {e}")
         return None
 
-# --- get_recent_sends uses the Positional ID, which is correct for the Snapshot method ---
+# --- get_recent_sends creates the vital "Positional ID" ---
 def get_recent_sends(uid, username_for_logging):
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API: {API_URL}")
     sends = []
@@ -80,6 +80,7 @@ def get_recent_sends(uid, username_for_logging):
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
             formatted_amount = f"{currency_symbol}{amount}"
+            # This ID is unique based on content AND position
             unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
             
             sends.append({
@@ -128,13 +129,13 @@ if __name__ == "__main__":
         uid = get_user_uid(username)
         if not uid: continue
         
-        # 1. GET THE NEW LIST OF SENDS (WITH POSITIONAL IDS)
+        # 1. GET THE NEW LIST OF SENDS (THE NEW SNAPSHOT)
         recent_sends = get_recent_sends(uid, username)
         if not recent_sends: continue
         
         print(f"Found {len(recent_sends)} recent sends for {username}.")
         
-        # 2. GET THE OLD AND NEW SNAPSHOTS (LISTS OF IDs)
+        # 2. GET THE OLD AND NEW SNAPSHOTS (AS SETS FOR FAST COMPARISON)
         previous_send_ids = set(all_states.get(username, [])) 
         current_send_ids = {send['id'] for send in recent_sends}
 
@@ -161,7 +162,6 @@ if __name__ == "__main__":
 
             potential_tweets.reverse() # Tweet oldest new send first
             
-            # This flag ensures we only update state if all tweets for a user succeed
             all_tweets_succeeded = True 
             for item in potential_tweets:
                 base_text = item['base_text']
@@ -175,8 +175,8 @@ if __name__ == "__main__":
                 
                 if not post_to_twitter(final_message):
                      print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
-                     all_tweets_succeeded = False # Mark as failed
-                     break # Stop this user's tweets
+                     all_tweets_succeeded = False
+                     break
                 time.sleep(2)
             
             # 4. IF ALL TWEETS SUCCEEDED, SAVE THE NEW SNAPSHOT
