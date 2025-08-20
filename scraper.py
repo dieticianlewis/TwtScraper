@@ -23,7 +23,7 @@ PROFILES_TO_TRACK = [
 
 STATE_FILE = "last_sends.json"
 # This is the correct API endpoint for the NEW payload structure
-API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/getPublicSends"
+API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
