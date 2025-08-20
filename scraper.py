@@ -1,14 +1,13 @@
 import os
 import json
+import time
 import requests
 import tweepy
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- NEW: Configuration for multiple profiles ---
-# We now use a list of dictionaries. You can easily add more people here.
+# --- Configuration ---
 PROFILES_TO_TRACK = [
     {
         "username": "alquis",
@@ -20,81 +19,81 @@ PROFILES_TO_TRACK = [
     }
 ]
 
-# The state file will now store the last send for ALL profiles.
-STATE_FILE = "last_sends.json" # Note the plural name now
+STATE_FILE = "last_sends.json"
+API_URL = "https://us-east1-sent-wc254r.cloudfunctions.net/recentSends"
 
-# --- Helper Functions (Mostly Unchanged) ---
+# --- NEW: This function calls the API directly ---
+def get_recent_sends(username):
+    """
+    Fetches the recent sends for a user directly from the API.
+    Returns a list of send dictionaries, newest first.
+    """
+    print(f"Fetching data for '{username}' from API...")
+    sends = []
+    
+    payload = {"username": username}
+    headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://sent.bio",
+        "Referer": f"https://sent.bio/{username}",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
 
-def get_latest_send(username):
-    """
-    Fetches the sent.bio page for a SPECIFIC USERNAME and extracts the most recent send.
-    """
-    url = f"https://sent.bio/{username}"
-    print(f"Fetching data from: {url}")
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        
+        api_data = response.json() # This is the list like [{sender_name: ...}, ...]
 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        header = soup.find(lambda tag: tag.name == "p" and "Recent Sends" in tag.text)
-        if not header:
-            print(f"Could not find 'Recent Sends' header for {username}.")
-            return None
-        
-        first_send_div = header.find_next_sibling('div')
-        
-        if first_send_div:
-            sender_element = first_send_div.find('p', class_='font-semibold')
-            amount_element = first_send_div.find('p', class_='text-gray-400')
+        # --- Convert API data to the format our script expects ---
+        for index, item in enumerate(api_data):
+            sender_name = item.get('sender_name', 'Unknown')
+            amount = item.get('amount', 0)
+            currency_symbol = item.get('sender_currency_symbol', '$')
+            
+            formatted_amount = f"{currency_symbol}{amount}"
+            
+            # Create a unique ID to prevent tweeting duplicates.
+            # Including the index makes it unique even if the same person sends the same amount twice in a row.
+            unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
 
-            if sender_element and amount_element:
-                sender = sender_element.text.strip()
-                amount = amount_element.text.strip()
-                send_id = f"{sender}-{amount}-{first_send_div.text.strip()}"
-                return {"sender": sender, "amount": amount, "id": send_id}
+            sends.append({
+                "sender": sender_name,
+                "amount": formatted_amount,
+                "id": unique_id
+            })
         
-        print(f"Could not parse the latest send for {username}. HTML structure may have changed.")
-        return None
+        return sends
 
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching page for {username}: {e}")
-        return None
-    except Exception as e:
-        print(f"An error occurred during scraping for {username}: {e}")
-        return None
+        print(f"Error fetching API for {username}: {e}")
+        return []
+    except json.JSONDecodeError:
+        print(f"Error decoding JSON response for {username}. Response was: {response.text}")
+        return []
 
+# --- Helper Functions (Unchanged) ---
 def read_state():
-    """Reads the entire state file for all profiles."""
     if not os.path.exists(STATE_FILE):
-        return {} # Return an empty dictionary if the file doesn't exist
+        return {}
     with open(STATE_FILE, 'r') as f:
         try:
             return json.load(f)
         except json.JSONDecodeError:
-            return {} # Return empty dict if file is empty or corrupted
+            return {}
 
 def write_state(data):
-    """Writes the entire state dictionary to the file."""
     with open(STATE_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
 def post_to_twitter(message):
-    """Posts a message to Twitter."""
     try:
-        consumer_key = os.environ['TWITTER_API_KEY']
-        consumer_secret = os.environ['TWITTER_API_SECRET']
-        access_token = os.environ['TWITTER_ACCESS_TOKEN']
-        access_token_secret = os.environ['TWITTER_ACCESS_TOKEN_SECRET']
-        
         client = tweepy.Client(
-            consumer_key=consumer_key,
-            consumer_secret=consumer_secret,
-            access_token=access_token,
-            access_token_secret=access_token_secret
+            consumer_key=os.environ['TWITTER_API_KEY'],
+            consumer_secret=os.environ['TWITTER_API_SECRET'],
+            access_token=os.environ['TWITTER_ACCESS_TOKEN'],
+            access_token_secret=os.environ['TWITTER_ACCESS_TOKEN_SECRET']
         )
-
         response = client.create_tweet(text=message)
         print(f"Tweet posted successfully: {response.data['id']}")
         return True
@@ -102,48 +101,46 @@ def post_to_twitter(message):
         print(f"Error posting to Twitter: {e}")
         return False
 
-# --- NEW: Main Execution Logic with a Loop ---
-
+# --- Main Logic (Unchanged from multi-send version) ---
 if __name__ == "__main__":
     print("Starting scraper for all profiles...")
     all_states = read_state()
     something_was_updated = False
 
-    # Loop through each profile defined in our configuration
     for profile in PROFILES_TO_TRACK:
         username = profile["username"]
         print(f"\n--- Checking profile: {username} ---")
 
-        latest_send = get_latest_send(username)
-        if not latest_send:
-            continue # Skip to the next profile if we couldn't get data
+        recent_sends = get_recent_sends(username)
+        if not recent_sends:
+            continue
 
-        print(f"Found latest send for {username}: {latest_send}")
-        
-        # Get the previous send ID specifically for this user
+        print(f"Found {len(recent_sends)} recent sends for {username}.")
         previous_send_id = all_states.get(username, {}).get("id")
-
-        if latest_send["id"] != previous_send_id:
-            print(f"New send detected for {username}! Preparing to tweet.")
+        
+        new_sends = []
+        for send in recent_sends:
+            if send["id"] == previous_send_id:
+                break
+            new_sends.append(send)
+        
+        if new_sends:
+            print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
+            new_sends.reverse() # Tweet oldest new send first
             
-            # Format the custom tweet message for this user
-            sender_name = latest_send['sender']
-            amount = latest_send['amount']
-            message_template = profile["tweet_message"]
-            message = message_template.format(amount=amount, sender_name=sender_name)
-            
-            print(f"Formatted Tweet: {message}")
+            for send in new_sends:
+                message_template = profile["tweet_message"]
+                message = message_template.format(amount=send['amount'], sender_name=send['sender'])
+                
+                print(f"Formatted Tweet: {message}")
+                post_to_twitter(message)
+                time.sleep(2)
 
-            if post_to_twitter(message):
-                # Update the state in our dictionary for this specific user
-                all_states[username] = latest_send
-                something_was_updated = True
-            else:
-                print(f"Failed to post tweet for {username}. State will not be updated.")
+            all_states[username] = recent_sends[0] # Save the newest send as the last seen
+            something_was_updated = True
         else:
-            print(f"No new send detected for {username}.")
+            print(f"No new sends detected for {username}.")
 
-    # After checking all profiles, write the updated states back to the file if anything changed.
     if something_was_updated:
         print("\n--- All profiles checked. Writing updated states to file. ---")
         write_state(all_states)

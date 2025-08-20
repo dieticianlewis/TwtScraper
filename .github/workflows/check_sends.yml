@@ -3,9 +3,7 @@ name: Check for New Sends
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *'
-
-    
+  
 jobs:
   scrape:
     runs-on: ubuntu-latest
