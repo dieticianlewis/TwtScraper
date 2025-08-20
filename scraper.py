@@ -31,7 +31,7 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0",
 ]
 
-# --- (get_user_uid function is unchanged) ---
+# --- (get_user_uid is unchanged) ---
 def get_user_uid(username):
     profile_url = f"https://sent.bio/{username}"
     print(f"Scraping {profile_url} to find user UID...")
@@ -41,14 +41,11 @@ def get_user_uid(username):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         meta_tags = soup.find_all('meta', property='og:image')
-        if not meta_tags:
-            print(f"Could not find any og:image meta tags for {username}.")
-            return None
+        if not meta_tags: return None
         for tag in meta_tags:
             if not tag.has_attr('content'): continue
             image_url = tag['content']
             if "public_users" in image_url:
-                print(f"DEBUG: Found user-specific image URL: {image_url}")
                 match = re.search(r"public_users(?:/|%2F)([a-zA-Z0-9]+)(?:/|%2F)", image_url)
                 if match:
                     uid = match.group(1)
@@ -60,7 +57,7 @@ def get_user_uid(username):
         print(f"Error fetching page for {username} to get UID: {e}")
         return None
 
-# --- get_recent_sends uses the Positional ID, which is correct for the Snapshot method ---
+# --- get_recent_sends returns full send objects ---
 def get_recent_sends(uid, username_for_logging):
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API: {API_URL}")
     sends = []
@@ -71,21 +68,16 @@ def get_recent_sends(uid, username_for_logging):
         response.raise_for_status()
         api_data = response.json()
         sends_list = api_data.get('result', [])
-        if not sends_list:
-             print(f"API response for {username_for_logging} contained no sends.")
-             return []
+        if not sends_list: return []
         
-        for index, item in enumerate(sends_list):
+        for item in sends_list:
             sender_name = item.get('sender_name', 'Unknown')
             amount = item.get('amount', 0)
             currency_symbol = item.get('sender_currency_symbol', '$')
             formatted_amount = f"{currency_symbol}{amount}"
-            unique_id = f"{sender_name}-{amount}-{currency_symbol}-{index}"
-            
             sends.append({
                 "sender": sender_name,
                 "amount": formatted_amount,
-                "id": unique_id,
             })
         return sends
     except Exception as e:
@@ -115,7 +107,7 @@ def post_to_twitter(message):
         print(f"Error posting to Twitter: {e}")
         return False
 
-# --- THE DEFINITIVE MAIN LOGIC USING THE "SNAPSHOT" METHOD ---
+# --- THE DEFINITIVE MAIN LOGIC USING "SHIFT DETECTION" ---
 if __name__ == "__main__":
     print("Starting scraper for all profiles...")
     all_states = read_state()
@@ -128,65 +120,66 @@ if __name__ == "__main__":
         uid = get_user_uid(username)
         if not uid: continue
         
-        # 1. GET THE NEW LIST OF SENDS (WITH POSITIONAL IDS)
+        # 1. GET THE NEW LIST OF SENDS
         recent_sends = get_recent_sends(uid, username)
         if not recent_sends: continue
         
         print(f"Found {len(recent_sends)} recent sends for {username}.")
         
-        # 2. GET THE OLD AND NEW SNAPSHOTS (LISTS OF IDs)
-        previous_send_ids = set(all_states.get(username, [])) 
-        current_send_ids = {send['id'] for send in recent_sends}
+        # 2. GET THE OLD LIST OF SENDS FROM MEMORY
+        previous_sends = all_states.get(username, [])
+        new_sends = []
 
-        # 3. FIND THE DIFFERENCE TO IDENTIFY TRULY NEW SENDS
-        new_sends = [send for send in recent_sends if send['id'] not in previous_send_ids]
+        if not previous_sends:
+            # If we have no memory, everything is new (for the first run)
+            new_sends = recent_sends
+        else:
+            # Find the anchor point: the top-most old send
+            anchor_send = previous_sends[0]
+            try:
+                # Find where the anchor is in the new list
+                anchor_index = recent_sends.index(anchor_send)
+                # Everything before the anchor is new
+                new_sends = recent_sends[:anchor_index]
+            except ValueError:
+                # The anchor was pushed off the list; assume everything is new
+                print("Major list change detected, treating all sends as new.")
+                new_sends = recent_sends
 
         if new_sends:
             print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
             
             now_est = datetime.now(target_timezone)
             time_str = now_est.strftime("%H:%M")
-
-            tweet_counts = {}
-            potential_tweets = []
             
+            new_sends.reverse() # Tweet oldest new send first
+            
+            all_tweets_succeeded = True 
             for send in new_sends:
-                base_text = profile["tweet_message"].format(
+                # Add a unique marker to every tweet to prevent all duplicate errors
+                unique_marker = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))
+                message_template = f"{profile['tweet_message']} [{unique_marker}]"
+
+                final_message = message_template.format(
                     amount=send['amount'],
                     sender_name=send['sender'],
                     est_time=time_str
                 )
-                potential_tweets.append({'base_text': base_text})
-                tweet_counts[base_text] = tweet_counts.get(base_text, 0) + 1
-
-            potential_tweets.reverse() # Tweet oldest new send first
-            
-            # This flag ensures we only update state if all tweets for a user succeed
-            all_tweets_succeeded = True 
-            for item in potential_tweets:
-                base_text = item['base_text']
-                final_message = base_text
-
-                if tweet_counts[base_text] > 1:
-                    unique_marker = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))
-                    final_message = f"{base_text} [{unique_marker}]"
-                
                 print(f"Formatted Tweet: {final_message}")
                 
                 if not post_to_twitter(final_message):
                      print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
-                     all_tweets_succeeded = False # Mark as failed
-                     break # Stop this user's tweets
+                     all_tweets_succeeded = False
+                     break
                 time.sleep(2)
             
-            # 4. IF ALL TWEETS SUCCEEDED, SAVE THE NEW SNAPSHOT
             if all_tweets_succeeded:
-                all_states[username] = list(current_send_ids)
+                # Save the complete new list as our new memory
+                all_states[username] = recent_sends
                 something_was_updated = True
         else:
             print(f"No new sends detected for {username}.")
 
-    # 5. WRITE THE FINAL, UPDATED STATES TO THE FILE
     if something_was_updated:
         print("\n--- All profiles checked. Writing updated states to file. ---")
         write_state(all_states)
