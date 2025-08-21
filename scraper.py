@@ -140,21 +140,21 @@ def process_profile(profile, all_states, target_timezone):
     if not uid:
         print(f"UID for {username} not in state file, fetching from web...")
         uid = get_user_uid(username)
+        # CORRECTED BLOCK BELOW
         if uid:
-    user_state["uid"] = uid
-    all_states[username] = user_state
-    # The UID was updated, but we continue to check for sends in this run.
-    # The state file will be saved later if any updates occurred. 
+            # These lines are now correctly indented
+            user_state["uid"] = uid
+            all_states[username] = user_state
+            # The function now continues, instead of returning early
         else:
             print(f"Could not get UID for {username}. Skipping.")
-            return False
+            return False # Still return False if UID fetch fails
 
     # 2. GET THE NEW LIST OF SENDS FROM API
     recent_sends = get_recent_sends(uid, username)
     if not recent_sends:
         print(f"No sends returned from API for {username}. Skipping.")
         return False
-    
     print(f"Found {len(recent_sends)} recent sends for {username}.")
     
     # 3. ROBUSTLY DETECT NEW SENDS using the "Check-Off" method
