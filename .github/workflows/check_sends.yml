@@ -12,19 +12,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      # --- THE FIX: Sync the repository IMMEDIATELY after checking it out ---
       - name: Sync with remote repository
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git pull --rebase
 
-      # --- All subsequent steps now run on a clean, up-to-date branch ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
+      # --- NEW STEP: Cache Python packages to speed up installation ---
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip # The directory to cache
+          # Create a unique key for the cache based on the OS, Python version, and requirements file hash.
+          # If requirements.txt changes, this key will change, and a new cache will be created.
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # --- MODIFIED STEP: Now installs dependencies much faster ---
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
