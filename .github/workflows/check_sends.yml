@@ -41,8 +41,9 @@ jobs:
       - name: Commit and push if files changed
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          pull_strategy: "rebase" 
           commit_message: "chore: Update state and run timestamp"
-          file_pattern: "last_sends.json last_run.txt" # <-- THIS LINE IS CHANGED
+          file_pattern: "last_sends.json last_run.txt" 
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "actions@github.com"
           commit_author: "GitHub Actions Bot <actions@github.com>"
