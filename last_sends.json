@@ -3,16 +3,16 @@
     "uid": "it54UEAVGkdEcRJLthGuidZHObp2",
     "sends": [
       {
+        "sender": "whalecum",
+        "amount": "$100"
+      },
+      {
         "sender": "************",
         "amount": "$5"
       },
       {
         "sender": "Anonymous",
         "amount": "$150"
-      },
-      {
-        "sender": "Anonymous",
-        "amount": "$50"
       }
     ]
   },
@@ -20,16 +20,16 @@
     "uid": "FN70NUv8JFQvEUUre5odEeQny3m2",
     "sends": [
       {
-        "sender": "Someone",
-        "amount": "$10"
+        "sender": "whalecum",
+        "amount": "$100"
       },
       {
         "sender": "Someone",
         "amount": "$10"
       },
       {
-        "sender": "Anonymous",
-        "amount": "$200"
+        "sender": "Someone",
+        "amount": "$10"
       }
     ]
   }
