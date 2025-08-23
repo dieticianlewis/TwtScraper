@@ -33,13 +33,10 @@ USER_AGENTS = [
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 5
 
-# --- HELPER FUNCTIONS ---
-
+# --- (All helper functions are unchanged) ---
 def get_user_uid(username):
-    """Scrapes the user's profile page to find their unique UID, with retries."""
     profile_url = f"https://sent.bio/{username}"
     print(f"Scraping {profile_url} to find user UID...")
-    
     for attempt in range(MAX_RETRIES):
         try:
             headers = {'User-Agent': random.choice(USER_AGENTS)}
@@ -56,22 +53,18 @@ def get_user_uid(username):
                     if match:
                         uid = match.group(1)
                         print(f"Successfully found UID for {username}: {uid}")
-                        return uid # SUCCESS: Exit function
+                        return uid
             print(f"Could not find a user-specific og:image tag for {username}.")
-            return None # SUCCESS (but no UID found), Exit function
+            return None
         except requests.exceptions.RequestException as e:
             print(f"Attempt {attempt + 1}/{MAX_RETRIES} failed for get_user_uid({username}): {e}")
             if attempt < MAX_RETRIES - 1:
-                print(f"Retrying in {RETRY_DELAY_SECONDS} seconds...")
                 time.sleep(RETRY_DELAY_SECONDS)
-    
     print(f"All {MAX_RETRIES} attempts failed for get_user_uid({username}).")
     return None
 
 def get_recent_sends(uid, username_for_logging):
-    """Fetches recent sends from the API using the user's UID, with retries."""
     print(f"Fetching data for '{username_for_logging}' (UID: {uid}) from API...")
-    
     for attempt in range(MAX_RETRIES):
         try:
             payload = {"data": {"receiverUid": uid}}
@@ -80,22 +73,19 @@ def get_recent_sends(uid, username_for_logging):
             response.raise_for_status()
             api_data = response.json()
             sends_list = api_data.get('result', [])
-            
             sends = []
-            if not sends_list: return [] # SUCCESS (API returned no sends)
+            if not sends_list: return []
             for item in sends_list:
                 sender_name = item.get('sender_name', 'Unknown')
                 amount = item.get('amount', 0)
                 currency_symbol = item.get('sender_currency_symbol', '$')
                 formatted_amount = f"{currency_symbol}{amount}"
                 sends.append({"sender": sender_name, "amount": formatted_amount})
-            return sends # SUCCESS: Exit function
+            return sends
         except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
             print(f"Attempt {attempt + 1}/{MAX_RETRIES} failed for get_recent_sends({username_for_logging}): {e}")
             if attempt < MAX_RETRIES - 1:
-                print(f"Retrying in {RETRY_DELAY_SECONDS} seconds...")
                 time.sleep(RETRY_DELAY_SECONDS)
-
     print(f"All {MAX_RETRIES} attempts failed for get_recent_sends({username_for_logging}).")
     return []
 
@@ -123,70 +113,69 @@ def post_to_twitter(message):
         print(f"Error posting to Twitter: {e}")
         return False
 
-# --- REFACTORED LOGIC FOR A SINGLE PROFILE ---
+# --- REFACTORED LOGIC FOR A SINGLE PROFILE (WITH SMARTER DUPLICATE DETECTION) ---
 def process_profile(profile, all_states, target_timezone):
-    """
-    Handles all logic for a single profile: fetching UID, getting sends,
-    detecting new ones, tweeting, and updating state.
-    Returns True if the state was updated, False otherwise.
-    """
     username = profile["username"]
     print(f"\n--- Checking profile: {username} ---")
 
-    # 1. GET THE USER'S STATE AND UID (with caching)
     user_state = all_states.get(username, {"uid": None, "sends": []})
     uid = user_state.get("uid")
+    state_was_updated_for_this_user = False
 
     if not uid:
         print(f"UID for {username} not in state file, fetching from web...")
         uid = get_user_uid(username)
-        # CORRECTED BLOCK BELOW
         if uid:
-            # These lines are now correctly indented
             user_state["uid"] = uid
             all_states[username] = user_state
-            # The function now continues, instead of returning early
+            state_was_updated_for_this_user = True
         else:
             print(f"Could not get UID for {username}. Skipping.")
-            return False # Still return False if UID fetch fails
+            return False
 
-    # 2. GET THE NEW LIST OF SENDS FROM API
     recent_sends = get_recent_sends(uid, username)
     if not recent_sends:
         print(f"No sends returned from API for {username}. Skipping.")
         return False
     print(f"Found {len(recent_sends)} recent sends for {username}.")
     
-    # 3. ROBUSTLY DETECT NEW SENDS using the "Check-Off" method
     previous_sends = user_state.get("sends", [])
     unseen_sends = list(previous_sends)
     new_sends = []
-
     for send in recent_sends:
-        try:
-            unseen_sends.remove(send)
-        except ValueError:
-            new_sends.append(send)
+        try: unseen_sends.remove(send)
+        except ValueError: new_sends.append(send)
 
     if new_sends:
         print(f"Found {len(new_sends)} new send(s) for {username}! Preparing to tweet.")
-        
         now_est = datetime.now(target_timezone)
         time_str = now_est.strftime("%H:%M")
-        new_sends.reverse() # Tweet oldest new send first
         
-        all_tweets_succeeded = True
+        # --- THIS IS THE NEW, SMARTER DUPLICATE DETECTION LOGIC ---
+        tweet_counts = {}
+        potential_tweets = []
         for send in new_sends:
-            unique_marker = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))
-            message_template = f"{profile['tweet_message']} [{unique_marker}]"
-
-            final_message = message_template.format(
+            base_text = profile["tweet_message"].format(
                 amount=send['amount'],
                 sender_name=send['sender'],
                 est_time=time_str
             )
-            print(f"Formatted Tweet: {final_message}")
+            potential_tweets.append({'base_text': base_text, 'original_send': send})
+            tweet_counts[base_text] = tweet_counts.get(base_text, 0) + 1
+        
+        potential_tweets.reverse() # Tweet oldest new send first
+        all_tweets_succeeded = True
+        for item in potential_tweets:
+            base_text = item['base_text']
+            send_data = item['original_send'] # We don't use this but it's good practice
+            final_message = base_text
             
+            # Only add the unique marker if this text appears more than once IN THIS BATCH
+            if tweet_counts[base_text] > 1:
+                unique_marker = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=2))
+                final_message = f"{base_text} [{unique_marker}]"
+
+            print(f"Formatted Tweet: {final_message}")
             if not post_to_twitter(final_message):
                 print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
                 all_tweets_succeeded = False
@@ -196,11 +185,11 @@ def process_profile(profile, all_states, target_timezone):
         if all_tweets_succeeded:
             user_state["sends"] = recent_sends
             all_states[username] = user_state
-            return True # State was updated
+            state_was_updated_for_this_user = True
     else:
         print(f"No new sends detected for {username}.")
     
-    return False # No state changes for this user
+    return state_was_updated_for_this_user
 
 # --- MAIN EXECUTION BLOCK (Now much cleaner) ---
 if __name__ == "__main__":
@@ -210,8 +199,7 @@ if __name__ == "__main__":
     target_timezone = ZoneInfo("America/New_York")
 
     for profile in PROFILES_TO_TRACK:
-        profile_was_updated = process_profile(profile, all_states, target_timezone)
-        if profile_was_updated:
+        if process_profile(profile, all_states, target_timezone):
             global_state_was_updated = True
 
     if global_state_was_updated:
