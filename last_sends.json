@@ -3,16 +3,16 @@
     "uid": "it54UEAVGkdEcRJLthGuidZHObp2",
     "sends": [
       {
+        "sender": "whalecum",
+        "amount": "$100"
+      },
+      {
         "sender": "************",
         "amount": "$5"
       },
       {
         "sender": "Anonymous",
         "amount": "$150"
-      },
-      {
-        "sender": "Anonymous",
-        "amount": "$50"
       }
     ]
   },
