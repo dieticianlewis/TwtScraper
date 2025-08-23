@@ -30,19 +30,16 @@ jobs:
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
         run: python scraper.py
 
-      # --- NEW STEP ---
-      # This step creates a new file or updates an existing one with the current timestamp.
-      # This guarantees that there is always a file change for the next step to commit.
       - name: Update run timestamp
         run: date > last_run.txt
 
-       - name: Sync with remote repository
+      # The indentation for this step is now correct
+      - name: Sync with remote repository
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git pull --rebase
           
-      # --- MODIFIED STEP ---
       - name: Commit and push if files changed
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -51,5 +48,3 @@ jobs:
           commit_user_name: "GitHub Actions Bot"
           commit_user_email: "actions@github.com"
           commit_author: "GitHub Actions Bot <actions@github.com>"
-
-  
