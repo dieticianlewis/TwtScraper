@@ -12,6 +12,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # --- THE FIX: Sync the repository IMMEDIATELY after checking it out ---
+      - name: Sync with remote repository
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git pull --rebase
+
+      # --- All subsequent steps now run on a clean, up-to-date branch ---
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -32,13 +40,6 @@ jobs:
 
       - name: Update run timestamp
         run: date > last_run.txt
-
-      # The indentation for this step is now correct
-      - name: Sync with remote repository
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
-          git pull --rebase
           
       - name: Commit and push if files changed
         uses: stefanzweifel/git-auto-commit-action@v5
