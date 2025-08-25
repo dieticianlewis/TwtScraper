@@ -3,8 +3,16 @@
     "uid": "it54UEAVGkdEcRJLthGuidZHObp2",
     "sends": [
       {
-        "sender": "(me)",
-        "amount": "a basket of potatos containing around: 7000000000"
+        "sender": "Anonymous",
+        "amount": "$50"
+      },
+      {
+        "sender": "pb",
+        "amount": "$50"
+      },
+      {
+        "sender": "@YoursForeve",
+        "amount": "$50"
       }
     ]
   },
