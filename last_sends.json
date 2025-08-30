@@ -21,15 +21,15 @@
     "sends": [
       {
         "sender": "Someone",
+        "amount": "\u20ac20"
+      },
+      {
+        "sender": "Someone",
         "amount": "$20"
       },
       {
         "sender": "Someone",
         "amount": "\u20ac30"
-      },
-      {
-        "sender": "Someone",
-        "amount": "\u20ac25"
       }
     ]
   }
