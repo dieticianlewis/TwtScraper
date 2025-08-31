@@ -20,16 +20,16 @@
     "uid": "FN70NUv8JFQvEUUre5odEeQny3m2",
     "sends": [
       {
+        "sender": "Anonymous",
+        "amount": "$50"
+      },
+      {
         "sender": "Someone",
         "amount": "$30"
       },
       {
         "sender": "Anonymous",
         "amount": "$50"
-      },
-      {
-        "sender": "Someone",
-        "amount": "$20"
       }
     ]
   }
