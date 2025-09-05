@@ -28,8 +28,8 @@
         "amount": "$100"
       },
       {
-        "sender": "Anonymous",
-        "amount": "$50"
+        "sender": "Someone",
+        "amount": "$100"
       }
     ]
   }
