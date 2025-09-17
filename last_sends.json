@@ -20,12 +20,12 @@
     "uid": "FN70NUv8JFQvEUUre5odEeQny3m2",
     "sends": [
       {
-        "sender": "Anonymous",
-        "amount": "$100"
+        "sender": "whalecum",
+        "amount": "\u00a3100"
       },
       {
-        "sender": "Someone",
-        "amount": "$50"
+        "sender": "Anonymous",
+        "amount": "$100"
       },
       {
         "sender": "Someone",
