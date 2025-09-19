@@ -20,15 +20,15 @@
     "uid": "FN70NUv8JFQvEUUre5odEeQny3m2",
     "sends": [
       {
+        "sender": "Someone",
+        "amount": "$50"
+      },
+      {
         "sender": "sissytampax",
         "amount": "\u00a374.58"
       },
       {
         "sender": "sissytampax",
-        "amount": "\u00a374.56"
-      },
-      {
-        "sender": "Someone",
         "amount": "\u00a374.56"
       }
     ]
