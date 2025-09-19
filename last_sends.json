@@ -21,15 +21,15 @@
     "sends": [
       {
         "sender": "sissytampax",
+        "amount": "\u00a3112.57"
+      },
+      {
+        "sender": "sissytampax",
         "amount": "\u00a375"
       },
       {
         "sender": "Someone",
         "amount": "$50"
-      },
-      {
-        "sender": "sissytampax",
-        "amount": "\u00a374.58"
       }
     ]
   }
