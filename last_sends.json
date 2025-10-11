@@ -20,16 +20,16 @@
     "uid": "FN70NUv8JFQvEUUre5odEeQny3m2",
     "sends": [
       {
+        "sender": "tatugobrea",
+        "amount": "$113"
+      },
+      {
         "sender": "Cindy",
         "amount": "$30"
       },
       {
         "sender": "Barbie",
         "amount": "$200"
-      },
-      {
-        "sender": "Barbie",
-        "amount": "$100"
       }
     ]
   }
