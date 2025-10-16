@@ -21,15 +21,15 @@
     "sends": [
       {
         "sender": "tatugobrea",
+        "amount": "$100"
+      },
+      {
+        "sender": "tatugobrea",
         "amount": "$113"
       },
       {
         "sender": "Someone",
         "amount": "$50"
-      },
-      {
-        "sender": "tatugobrea",
-        "amount": "$113"
       }
     ]
   }
