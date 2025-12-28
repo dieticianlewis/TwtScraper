@@ -27,6 +27,19 @@
   },
   "juju": {
     "uid": "mGZYDCNV01Tgyf1UKXuuFhr61e43",
-    "sends": []
+    "sends": [
+      {
+        "sender": "Someone",
+        "amount": "$35"
+      },
+      {
+        "sender": "Someone",
+        "amount": "$20"
+      },
+      {
+        "sender": "Someone",
+        "amount": "$35"
+      }
+    ]
   }
 }
