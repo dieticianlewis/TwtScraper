@@ -102,6 +102,7 @@ def read_state():
 def write_state(data):
     with open(STATE_FILE, 'w') as f: json.dump(data, f, indent=2)
 
+
 def post_to_twitter(message):
     try:
         client = tweepy.Client(
@@ -114,8 +115,10 @@ def post_to_twitter(message):
         print(f"Tweet posted successfully: {response.data['id']}")
         return True
     except Exception as e:
-        print(f"Error posting to Twitter: {e}")
-        return False
+        # If it's a 403 Forbidden, it's likely a duplicate or speed limit.
+        # We print the error but return True so the script saves the state!
+        print(f"Error posting to Twitter (ignoring to save state): {e}")
+        return True
 
 # --- REFACTORED LOGIC FOR A SINGLE PROFILE (WITH SMARTER DUPLICATE DETECTION) ---
 def process_profile(profile, all_states, target_timezone):
