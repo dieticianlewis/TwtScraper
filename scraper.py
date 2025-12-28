@@ -184,7 +184,7 @@ def process_profile(profile, all_states, target_timezone):
                 print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
                 all_tweets_succeeded = False
                 break
-            time.sleep(2)
+            time.sleep(60)
         
         if all_tweets_succeeded:
             user_state["sends"] = recent_sends
