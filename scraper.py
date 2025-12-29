@@ -24,7 +24,7 @@ PROFILES_TO_TRACK = [
     },
     {
         "username": "juju",
-        "tweet_message": "Predator Julia Lacharity @julietethebest just got sent {amount} from {sender_name} at {est_time} EST"
+        "tweet_message": "Hollow Predator Julia Lacharity @julietethebest just got sent {amount} from {sender_name} at {est_time} EST"
     }
 ]
 
@@ -102,7 +102,6 @@ def read_state():
 def write_state(data):
     with open(STATE_FILE, 'w') as f: json.dump(data, f, indent=2)
 
-
 def post_to_twitter(message):
     try:
         client = tweepy.Client(
@@ -115,10 +114,8 @@ def post_to_twitter(message):
         print(f"Tweet posted successfully: {response.data['id']}")
         return True
     except Exception as e:
-        # If it's a 403 Forbidden, it's likely a duplicate or speed limit.
-        # We print the error but return True so the script saves the state!
-        print(f"Error posting to Twitter (ignoring to save state): {e}")
-        return True
+        print(f"Error posting to Twitter: {e}")
+        return False
 
 # --- REFACTORED LOGIC FOR A SINGLE PROFILE (WITH SMARTER DUPLICATE DETECTION) ---
 def process_profile(profile, all_states, target_timezone):
@@ -187,7 +184,7 @@ def process_profile(profile, all_states, target_timezone):
                 print(f"Stopping processing for {username} due to tweet failure. State will not be updated.")
                 all_tweets_succeeded = False
                 break
-            time.sleep(60)
+            time.sleep(2)
         
         if all_tweets_succeeded:
             user_state["sends"] = recent_sends
