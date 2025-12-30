@@ -24,7 +24,7 @@ PROFILES_TO_TRACK = [
     },
     {
         "username": "juju",
-        "tweet_message": "Hollow Predator Julia Lacharity @julietethebest just got sent {amount} from {sender_name} at {est_time} EST"
+        "tweet_message": "Predator Julia Lacharity @liliisperfect just got sent {amount} from {sender_name} at {est_time} EST"
     }
 ]
 
