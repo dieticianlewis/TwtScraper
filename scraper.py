@@ -16,15 +16,15 @@ load_dotenv()
 PROFILES_TO_TRACK = [
     {
         "username": "alquis",
-        "tweet_message": "Keira @alquis13 just got sent {amount} from {sender_name} at {est_time} EST"
+        "tweet_message": "Keira just got sent {amount} from {sender_name} at {est_time} EST"
     },
     {
         "username": "gnnx",
-        "tweet_message": "Keira's friend @gigiidk18 was sent {amount} from {sender_name} at {est_time} EST"
+        "tweet_message": "Gianna was sent {amount} from {sender_name} at {est_time} EST"
     },
     {
         "username": "lili",
-        "tweet_message": "Predator Julia Lacharity @liliisperfect just got sent {amount} from {sender_name} at {est_time} EST"
+        "tweet_message": "Lili just got sent {amount} from {sender_name} at {est_time} EST"
     }
 ]
 
